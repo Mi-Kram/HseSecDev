@@ -1,0 +1,5 @@
+[bandit]
+; skips = B101,B102  # id тестов, чтобы пропустить
+
+[bandit:setup]
+exclude_dirs = tests,.venv
