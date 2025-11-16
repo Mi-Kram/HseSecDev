@@ -5,9 +5,9 @@
 ## Быстрый старт
 ```bash
 # Production
-docker compose --env-file .env --profile prod up -d --build
+docker compose --profile prod up -d --build
 # Development
-docker compose --env-file .env.dev --profile dev up -d --build
+docker compose --profile prod --profile dev up -d --build
 ```
 
 ```bash

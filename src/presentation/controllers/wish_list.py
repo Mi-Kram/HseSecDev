@@ -15,9 +15,9 @@ router = APIRouter(tags=["wishes"])
 @router.get("")
 @authorize
 async def get_wishes(
+    user_id: CurrentUserID = None,
     price: Optional[Decimal] = Query(None),
     service: WishListService = Depends(),
-    user_id: CurrentUserID = None,
 ):
     return service.get_all_by_user_id(user_id, price)
 
@@ -27,8 +27,8 @@ async def get_wishes(
 @authorize
 async def get_wish_by_id(
     id: int,
-    service: WishListService = Depends(),
     user_id: CurrentUserID = None,
+    service: WishListService = Depends(),
 ):
     return service.get_by_id(id, user_id)
 
@@ -38,8 +38,8 @@ async def get_wish_by_id(
 @authorize
 async def create_wish(
     data: WishListPost,
-    service: WishListService = Depends(),
     user_id: CurrentUserID = None,
+    service: WishListService = Depends(),
 ):
     info = WishListCreate()
     info.user_id = user_id
@@ -55,8 +55,8 @@ async def create_wish(
 async def update_wish(
     id: int,
     data: WishListPut,
-    service: WishListService = Depends(),
     user_id: CurrentUserID = None,
+    service: WishListService = Depends(),
 ):
     return {"success": service.update(id, data, user_id)}
 
@@ -66,8 +66,8 @@ async def update_wish(
 @authorize
 async def delete_wish(
     id: int,
-    service: WishListService = Depends(),
     user_id: CurrentUserID = None,
+    service: WishListService = Depends(),
 ):
     return {"success": service.delete(id, user_id)}
 
@@ -78,8 +78,8 @@ async def delete_wish(
 async def create_notes(
     id: int,
     data: WishNotePost,
-    service: WishListService = Depends(),
     user_id: CurrentUserID = None,
+    service: WishListService = Depends(),
 ):
     return {"success": service.add_notes(id, data.notes, user_id)}
 
@@ -90,8 +90,8 @@ async def create_notes(
 async def update_notes(
     id: int,
     data: WishNotePut,
-    service: WishListService = Depends(),
     user_id: CurrentUserID = None,
+    service: WishListService = Depends(),
 ):
     return {"success": service.update_notes(id, data.notes, user_id)}
 
@@ -101,8 +101,8 @@ async def update_notes(
 @authorize
 async def delete_notes(
     id: int,
+    user_id: CurrentUserID = None,
     ids: list[int] = Query([]),
     service: WishListService = Depends(),
-    user_id: CurrentUserID = None,
 ):
     return {"success": service.delete_notes(id, ids, user_id)}
