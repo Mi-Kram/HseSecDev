@@ -2,7 +2,7 @@ title = "Project secret scanning"
 
 [allowlist]
 description = "Ignore demo tokens in docs"
-paths = ["README.md"]
+paths = [".env.example", "README.md"]
 regexes = ["example-jwt-token"]
 
 [[rules]]
