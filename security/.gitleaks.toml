@@ -1,0 +1,18 @@
+title = "Project secret scanning"
+
+[allowlist]
+description = "False positive for JWT example value"
+paths = [
+  "README.md"
+]
+regexes = [
+  "example-jwt-token"
+]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API key"
+regex = '''
+(?i)(api_key|apikey|secret|token)\s*=\s*["'][0-9a-zA-Z\-_]{16,}["']
+'''
+severity = "high"

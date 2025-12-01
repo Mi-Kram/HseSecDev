@@ -143,3 +143,40 @@ jobs:
         with:
           name: evidence-p09
           path: EVIDENCE/P09
+
+
+  sast:
+    name: SAST & Secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create EVIDENCE directory
+        run: mkdir -p EVIDENCE/P10
+
+      # Semgrep (SAST)
+      - name: Run Semgrep (SARIF)
+        run: |
+          pip install semgrep==1.59.0
+          semgrep ci \
+            --config p/ci \
+            --config security/semgrep/rules.yml \
+            --sarif > EVIDENCE/P10/semgrep.sarif || true
+
+      # Gitleaks (secrets)
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          config-path: security/.gitleaks.toml
+          report-path: EVIDENCE/P10/gitleaks.json
+        continue-on-error: true
+
+      # Upload evidence
+      - name: Upload EVIDENCE/P10
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-p10
+          path: EVIDENCE/P10
+
