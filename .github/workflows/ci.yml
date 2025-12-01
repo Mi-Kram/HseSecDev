@@ -103,22 +103,25 @@ jobs:
       - name: Create EVIDENCE structure
         run: mkdir -p EVIDENCE/P09
 
-      # SBOM generation
-      - name: Generate SBOM (Syft)
-        uses: anchore/sbom-action@v0.15.10
-        with:
-          image: .
-          format: cyclonedx-json
-          output-file: EVIDENCE/P09/sbom.json
+      - name: Install Syft (SBOM)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin v1.10.0
 
-      # SCA scan
-      - name: Vulnerability scan (Grype)
-        uses: anchore/scan-action@v4.0.0
-        with:
-          sbom: EVIDENCE/P09/sbom.json
-          output-format: json
-          output-file: EVIDENCE/P09/sca_report.json
-          fail-build: false
+      - name: Install Grype (SCA)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
+            | sh -s -- -b /usr/local/bin v0.75.0
+
+      # SBOM generation (C1)
+      - name: Generate SBOM
+        run: |
+          syft dir:. -o cyclonedx-json > EVIDENCE/P09/sbom.json
+
+      # SCA scan (C2)
+      - name: Vulnerability scan
+        run: |
+          grype sbom:EVIDENCE/P09/sbom.json -o json > EVIDENCE/P09/sca_report.json || true
 
       # Summary generation
       - name: Generate SCA summary
@@ -126,19 +129,15 @@ jobs:
           echo "# SCA Summary" > EVIDENCE/P09/sca_summary.md
           echo "" >> EVIDENCE/P09/sca_summary.md
           echo "Commit: $GITHUB_SHA" >> EVIDENCE/P09/sca_summary.md
-          echo "Workflow: $GITHUB_WORKFLOW" >> EVIDENCE/P09/sca_summary.md
           echo "Run ID: $GITHUB_RUN_ID" >> EVIDENCE/P09/sca_summary.md
           echo "" >> EVIDENCE/P09/sca_summary.md
           echo "## Vulnerabilities by severity" >> EVIDENCE/P09/sca_summary.md
-          jq -r '
-            .matches[]
-            | .vulnerability.severity
-          ' EVIDENCE/P09/sca_report.json \
-          | sort | uniq -c \
-          | sort -nr \
-          | awk '{print "- " $2 ": " $1}' >> EVIDENCE/P09/sca_summary.md
 
-      # Upload evidence
+          jq -r '.matches[].vulnerability.severity' EVIDENCE/P09/sca_report.json \
+            | sort | uniq -c | sort -nr \
+            | awk '{print "- " $2 ": " $1}' >> EVIDENCE/P09/sca_summary.md
+
+      # Upload evidence (C3)
       - name: Upload EVIDENCE/P09
         uses: actions/upload-artifact@v4
         with:
