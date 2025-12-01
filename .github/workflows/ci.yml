@@ -159,7 +159,7 @@ jobs:
       # Semgrep (SAST)
       - name: Run Semgrep (SARIF)
         run: |
-          pip install semgrep==1.59.0
+          pip install semgrep
           semgrep ci \
             --config p/ci \
             --config security/semgrep/rules.yml \
@@ -167,11 +167,25 @@ jobs:
 
       # Gitleaks (secrets)
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          config-path: security/.gitleaks.toml
-          report-path: EVIDENCE/P10/gitleaks.json
-        continue-on-error: true
+        run: |
+          pip install gitleaks
+          gitleaks detect --source=. \
+            --config=security/.gitleaks.toml \
+            --report-format=json \
+            --report-path=EVIDENCE/P10/gitleaks.json || true
+
+      - name: Generate SAST summary
+        run: |
+          echo "# SAST Summary" > EVIDENCE/P10/sast_summary.md
+          echo "" >> EVIDENCE/P10/sast_summary.md
+          echo "Commit: $GITHUB_SHA" >> EVIDENCE/P10/sast_summary.md
+          echo "Run ID: $GITHUB_RUN_ID" >> EVIDENCE/P10/sast_summary.md
+          echo "" >> EVIDENCE/P10/sast_summary.md
+          echo "## Semgrep findings" >> EVIDENCE/P10/sast_summary.md
+          jq '.runs[].results | length' EVIDENCE/P10/semgrep.sarif >> EVIDENCE/P10/sast_summary.md
+          echo "" >> EVIDENCE/P10/sast_summary.md
+          echo "## Gitleaks findings" >> EVIDENCE/P10/sast_summary.md
+          jq '. | length' EVIDENCE/P10/gitleaks.json >> EVIDENCE/P10/sast_summary.md
 
       # Upload evidence
       - name: Upload EVIDENCE/P10
