@@ -6,7 +6,7 @@ rules:
     languages: [python]
 
   - id: hardcoded-password
-    pattern-regex: "(password|passwd|pwd)\s*=\s*['\"]"
+    pattern-regex: "(password|passwd|pwd)\\s*=\\s*['\\\"]"
     message: "Possible hardcoded password"
     severity: WARNING
     languages: [python]
