@@ -1,9 +1,8 @@
 name: CI
 on:
-  pull_request:
   push:
-    branches:
-      - main
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,6 +14,8 @@ concurrency:
 
 jobs:
   build:
+    name: Build & Test
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -60,9 +61,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Run tests with HTML report
-        run: pytest --html=report.html
-
       - name: Lint & Format
         run: |
           ruff check --output-format=github .
@@ -70,17 +68,16 @@ jobs:
           isort --check-only .
           bandit -r src
 
-      - name: Tests
-        run: pytest -q
+      - name: Run tests with HTML report
+        run: pytest -q --html=report.html
 
       - name: Pre-commit (all files)
         run: pre-commit run --all-files
 
-      - name: Install build tool
-        run: pip install build
-
-      - name: Build wheel
-        run: python -m build
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
@@ -93,3 +90,56 @@ jobs:
         with:
           name: pytest-report-${{ matrix.os }}-${{ matrix.python-version }}
           path: report.html
+
+
+  sbom_sca:
+    name: SBOM & SCA
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create EVIDENCE structure
+        run: mkdir -p EVIDENCE/P09
+
+      - name: Install Syft (SBOM)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin v1.10.0
+
+      - name: Install Grype (SCA)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
+            | sh -s -- -b /usr/local/bin v0.75.0
+
+      # SBOM generation (C1)
+      - name: Generate SBOM
+        run: |
+          syft dir:. -o json > EVIDENCE/P09/sbom.json
+
+      # SCA scan (C2)
+      - name: Vulnerability scan
+        run: |
+          grype sbom:EVIDENCE/P09/sbom.json -o json > EVIDENCE/P09/sca_report.json || true
+
+      # Summary generation
+      - name: Generate SCA summary
+        run: |
+          echo "# SCA Summary" > EVIDENCE/P09/sca_summary.md
+          echo "" >> EVIDENCE/P09/sca_summary.md
+          echo "Commit: $GITHUB_SHA" >> EVIDENCE/P09/sca_summary.md
+          echo "Run ID: $GITHUB_RUN_ID" >> EVIDENCE/P09/sca_summary.md
+          echo "" >> EVIDENCE/P09/sca_summary.md
+          echo "## Vulnerabilities by severity" >> EVIDENCE/P09/sca_summary.md
+
+          jq -r '.matches[].vulnerability.severity' EVIDENCE/P09/sca_report.json \
+            | sort | uniq -c | sort -nr \
+            | awk '{print "- " $2 ": " $1}' >> EVIDENCE/P09/sca_summary.md
+
+      # Upload evidence (C3)
+      - name: Upload EVIDENCE/P09
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-p09
+          path: EVIDENCE/P09

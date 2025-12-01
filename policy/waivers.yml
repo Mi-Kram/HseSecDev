@@ -1,0 +1,6 @@
+waivers: []
+  # - id: CVE-2025-XXXX
+  #   package: example-lib
+  #   reason: "РБРО"
+  #   expires: 2025-12-31
+  #   issue: "https://github.com/hse-secdev-2025-fall/course-project-Mi-Kram/issues/2"
