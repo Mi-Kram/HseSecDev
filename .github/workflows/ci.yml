@@ -116,7 +116,7 @@ jobs:
       # SBOM generation (C1)
       - name: Generate SBOM
         run: |
-          syft dir:. -o cyclonedx-json > EVIDENCE/P09/sbom.json
+          syft dir:. -o json > EVIDENCE/P09/sbom.json
 
       # SCA scan (C2)
       - name: Vulnerability scan
