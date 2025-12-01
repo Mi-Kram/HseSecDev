@@ -1,4 +1,4 @@
-fastapi==0.112.2
+fastapi==0.123.0
 starlette>=0.47.2
 uvicorn==0.30.5
 psycopg[binary]==3.2.1
