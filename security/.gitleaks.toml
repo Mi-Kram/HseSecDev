@@ -1,0 +1,12 @@
+title = "Project secret scanning"
+
+[allowlist]
+description = "Ignore demo tokens in docs"
+paths = [".env.example", "README.md"]
+regexes = ["example-jwt-token"]
+
+[[rules]]
+id = "generic-password"
+description = "Hardcoded password or secret"
+regex = "(?i)(password|passwd|secret|token|api_key)\\s*=\\s*[\"'][^\"']+[\"']"
+severity = "high"
