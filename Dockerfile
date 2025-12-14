@@ -15,5 +15,6 @@ COPY . .
 EXPOSE 8000
 HEALTHCHECK CMD curl -f http://localhost:8000/api/health || exit 1
 USER appuser
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
