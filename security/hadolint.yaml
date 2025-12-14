@@ -1,0 +1,8 @@
+ignored:
+  - DL3008   # pin versions in apt-get install (иногда сложно, но лучше стремиться)
+  - DL3018   # pin versions in apk add
+  - DL3059   # multiple consecutive RUN
+
+trustedRegistries:
+  - docker.io
+  - ghcr.io

@@ -1,0 +1,8 @@
+quiet: true
+framework:
+  - terraform
+  - kubernetes
+  - dockerfile
+skip-check:
+  # - CKV_K8S_21
+  []
