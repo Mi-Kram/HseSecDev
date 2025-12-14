@@ -241,8 +241,8 @@ jobs:
               -m 2 \
               -T 10 \
               -I \
-              -r "/zap/wrk/EVIDENCE/P11/zap_baseline.html" \
-              -J "/zap/wrk/EVIDENCE/P11/zap_baseline.json" \
+              -r "EVIDENCE/P11/zap_baseline.html" \
+              -J "EVIDENCE/P11/zap_baseline.json" \
               -z "-config connection.timeoutInSecs=60 -config connection.readtimeoutInSecs=60"
 
       - name: Stop app
