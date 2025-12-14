@@ -178,3 +178,87 @@ jobs:
         with:
           name: evidence-p10
           path: EVIDENCE/P10
+
+
+  zap_baseline:
+    name: ZAP Baseline (DAST)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      PORT: "8000"
+      APP_MODULE: "src.app.main:app"
+      BASE_URL: "http://127.0.0.1:8000"
+      HEALTH_URL: "http://127.0.0.1:8000/api/health"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Start app (local)
+        run: |
+          mkdir -p EVIDENCE/P11
+          nohup python -m uvicorn "${APP_MODULE}" --host 127.0.0.1 --port "${PORT}" > EVIDENCE/P11/service.log 2>&1 &
+          echo $! > EVIDENCE/P11/service.pid
+
+      - name: Wait for health
+        run: |
+          echo "Waiting for service on ${HEALTH_URL}"
+          for i in $(seq 1 60); do
+            if curl -fsS "${HEALTH_URL}" > /dev/null; then
+              echo "Service is UP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Service failed to start. Last logs:"
+          tail -n 200 EVIDENCE/P11/service.log || true
+          exit 1
+
+      - name: ZAP Baseline scan (docker)
+        run: |
+          chmod -R a+rwx EVIDENCE/P11
+
+          docker pull ghcr.io/zaproxy/zaproxy:stable
+
+          docker run --rm --network host \
+            --user 0:0 \
+            -v "${PWD}:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t "${BASE_URL}" \
+              -m 2 \
+              -T 10 \
+              -I \
+              -r "EVIDENCE/P11/zap_baseline.html" \
+              -J "EVIDENCE/P11/zap_baseline.json" \
+              -z "-config connection.timeoutInSecs=60 -config connection.readtimeoutInSecs=60"
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f EVIDENCE/P11/service.pid ]; then
+            kill "$(cat EVIDENCE/P11/service.pid)" || true
+          fi
+
+      - name: Upload P11 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: P11-EVIDENCE
+          path: |
+            EVIDENCE/P11/zap_baseline.html
+            EVIDENCE/P11/zap_baseline.json
+            EVIDENCE/P11/service.log
+          if-no-files-found: warn
