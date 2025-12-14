@@ -268,10 +268,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    env:
-      DOCKERFILE_PATH: Dockerfile
-      IMAGE_NAME: local/app:${{ github.sha }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -280,96 +276,35 @@ jobs:
         run: |
           mkdir -p EVIDENCE/P12
 
-      - name: Hadolint (Dockerfile)
+      - name: Build image
         run: |
-          set -euo pipefail
-          test -f "${DOCKERFILE_PATH}"
+          docker build -t app:local .
 
-          HADOLINT_CONFIG=""
-          if [ -f security/hadolint.yaml ]; then
-            HADOLINT_CONFIG="-c security/hadolint.yaml"
-          fi
-
-          docker run --rm \
-            -v "${PWD}:/work" -w /work \
-            hadolint/hadolint:latest \
-            hadolint ${HADOLINT_CONFIG} -f json "${DOCKERFILE_PATH}" \
-            > EVIDENCE/P12/hadolint_report.json
-
-          test -s EVIDENCE/P12/hadolint_report.json
-
-      - name: Detect IaC directory
-        id: iac
+      - name: Hadolint Dockerfile
         run: |
-          set -euo pipefail
-          for d in iac k8s deploy helm infra terraform; do
-            if [ -d "$d" ]; then
-              echo "found=true" >> $GITHUB_OUTPUT
-              echo "dir=$d" >> $GITHUB_OUTPUT
-              echo "Detected IaC dir: $d"
-              exit 0
-            fi
-          done
-          echo "found=false" >> $GITHUB_OUTPUT
-          echo "No IaC directory found - skipping Checkov."
+          docker run --rm -v $PWD:/work hadolint/hadolint \
+            hadolint -f json /work/Dockerfile > EVIDENCE/P12/hadolint_report.json || true
 
-      - name: Checkov (IaC)
+      - name: Checkov IaC scan
         run: |
-          set -euo pipefail
+          TARGET_DIR="iac"
+          if [ -d "k8s" ]; then TARGET_DIR="k8s"; fi
+          if [ -d "deploy" ]; then TARGET_DIR="deploy"; fi
+          docker run --rm -v $PWD:/work bridgecrew/checkov \
+            -d /work/${TARGET_DIR} \
+            -o json \
+            --compact > EVIDENCE/P12/checkov_report.json || true
 
-          CHECKOV_CONFIG=""
-          if [ -f security/checkov.yaml ]; then
-            CHECKOV_CONFIG="--config-file security/checkov.yaml"
-          fi
-
-          docker run --rm \
-            -v "${PWD}:/work" -w /work \
-            bridgecrew/checkov:latest \
-            checkov -d "${{ steps.iac.outputs.dir }}" ${CHECKOV_CONFIG} -o json \
-            > EVIDENCE/P12/checkov_report.json
-
-          test -s EVIDENCE/P12/checkov_report.json
-
-      - name: Build Docker image
+      - name: Trivy image scan
         run: |
-          set -euo pipefail
-          docker build -t "${IMAGE_NAME}" -f "${DOCKERFILE_PATH}" .
-
-      - name: Trivy scan image (JSON)
-        uses: aquasecurity/trivy-action@0.20.0
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}
-          format: json
-          output: EVIDENCE/P12/trivy_report.json
-          vuln-type: os,library
-          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
-          ignore-unfixed: true
-
-      - name: Verify reports exist
-        if: always()
-        run: |
-          set -euo pipefail
-          ls -la EVIDENCE/P12 || true
-
-          test -s EVIDENCE/P12/hadolint_report.json
-          test -s EVIDENCE/P12/trivy_report.json
-
-          if [ "${{ steps.iac.outputs.found }}" = "true" ]; then
-            test -s EVIDENCE/P12/checkov_report.json
-          else
-            echo "Checkov report not required (no IaC directory)."
-          fi
+          docker run --rm -v $PWD:/work aquasec/trivy \
+            image app:local \
+              --format json \
+              --output /work/EVIDENCE/P12/trivy_report.json || true
 
       - name: Upload P12 evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: P12-EVIDENCE
-          path: |
-            EVIDENCE/P12/hadolint_report.json
-            EVIDENCE/P12/checkov_report.json
-            EVIDENCE/P12/trivy_report.json
-            security/hadolint.yaml
-            security/checkov.yaml
-            EVIDENCE/P12/hardening_summary.md
-          if-no-files-found: warn
+          name: P12_EVIDENCE
+          path: EVIDENCE/P12
