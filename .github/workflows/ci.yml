@@ -262,3 +262,106 @@ jobs:
             EVIDENCE/P11/zap_baseline.json
             EVIDENCE/P11/service.log
           if-no-files-found: warn
+
+
+  p12_scans:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      DOCKERFILE_PATH: Dockerfile
+      IMAGE_NAME: local/app:${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare evidence dir
+        run: |
+          mkdir -p EVIDENCE/P12
+
+      - name: Hadolint (Dockerfile)
+        run: |
+          set -euo pipefail
+          test -f "${DOCKERFILE_PATH}"
+
+          HADOLINT_CONFIG=""
+          if [ -f security/hadolint.yaml ]; then
+            HADOLINT_CONFIG="-c security/hadolint.yaml"
+          fi
+
+          docker run --rm \
+            -v "${PWD}:/work" -w /work \
+            hadolint/hadolint:latest \
+            hadolint ${HADOLINT_CONFIG} -f json "${DOCKERFILE_PATH}" \
+            > EVIDENCE/P12/hadolint_report.json
+
+          test -s EVIDENCE/P12/hadolint_report.json
+
+      - name: Detect IaC directory
+        id: iac
+        run: |
+          set -euo pipefail
+          for d in iac k8s deploy helm infra terraform; do
+            if [ -d "$d" ]; then
+              echo "dir=$d" >> $GITHUB_OUTPUT
+              echo "Detected IaC dir: $d"
+              exit 0
+            fi
+          done
+          echo "No IaC directory found (iac/k8s/deploy/helm/infra/terraform)."
+          exit 1
+
+      - name: Checkov (IaC)
+        run: |
+          set -euo pipefail
+
+          CHECKOV_CONFIG=""
+          if [ -f security/checkov.yaml ]; then
+            CHECKOV_CONFIG="--config-file security/checkov.yaml"
+          fi
+
+          docker run --rm \
+            -v "${PWD}:/work" -w /work \
+            bridgecrew/checkov:latest \
+            checkov -d "${{ steps.iac.outputs.dir }}" ${CHECKOV_CONFIG} -o json \
+            > EVIDENCE/P12/checkov_report.json
+
+          test -s EVIDENCE/P12/checkov_report.json
+
+      - name: Build Docker image
+        run: |
+          set -euo pipefail
+          docker build -t "${IMAGE_NAME}" -f "${DOCKERFILE_PATH}" .
+
+      - name: Trivy scan image (JSON)
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}
+          format: json
+          output: EVIDENCE/P12/trivy_report.json
+          vuln-type: os,library
+          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          ignore-unfixed: true
+
+      - name: Verify reports exist
+        if: always()
+        run: |
+          ls -la EVIDENCE/P12 || true
+          test -s EVIDENCE/P12/hadolint_report.json
+          test -s EVIDENCE/P12/checkov_report.json
+          test -s EVIDENCE/P12/trivy_report.json
+
+      - name: Upload P12 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: P12-EVIDENCE
+          path: |
+            EVIDENCE/P12/hadolint_report.json
+            EVIDENCE/P12/checkov_report.json
+            EVIDENCE/P12/trivy_report.json
+            security/hadolint.yaml
+            security/checkov.yaml
+            EVIDENCE/P12/hardening_summary.md
+          if-no-files-found: warn
