@@ -1,0 +1,12 @@
+rules:
+  - id: no-eval
+    pattern: eval(...)
+    message: "Use of eval() is dangerous"
+    severity: ERROR
+    languages: [python]
+
+  - id: hardcoded-password
+    pattern-regex: "(password|passwd|pwd)\\s*=\\s*['\\\"]"
+    message: "Possible hardcoded password"
+    severity: WARNING
+    languages: [python]
