@@ -304,13 +304,14 @@ jobs:
           set -euo pipefail
           for d in iac k8s deploy helm infra terraform; do
             if [ -d "$d" ]; then
+              echo "found=true" >> $GITHUB_OUTPUT
               echo "dir=$d" >> $GITHUB_OUTPUT
               echo "Detected IaC dir: $d"
               exit 0
             fi
           done
-          echo "No IaC directory found (iac/k8s/deploy/helm/infra/terraform)."
-          exit 1
+          echo "found=false" >> $GITHUB_OUTPUT
+          echo "No IaC directory found - skipping Checkov."
 
       - name: Checkov (IaC)
         run: |
@@ -347,10 +348,17 @@ jobs:
       - name: Verify reports exist
         if: always()
         run: |
+          set -euo pipefail
           ls -la EVIDENCE/P12 || true
+
           test -s EVIDENCE/P12/hadolint_report.json
-          test -s EVIDENCE/P12/checkov_report.json
           test -s EVIDENCE/P12/trivy_report.json
+
+          if [ "${{ steps.iac.outputs.found }}" = "true" ]; then
+            test -s EVIDENCE/P12/checkov_report.json
+          else
+            echo "Checkov report not required (no IaC directory)."
+          fi
 
       - name: Upload P12 evidence
         if: always()
