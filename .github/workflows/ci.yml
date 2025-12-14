@@ -228,9 +228,12 @@ jobs:
 
       - name: ZAP Baseline scan (docker)
         run: |
+          chmod -R a+rwx EVIDENCE/P11
+
           docker pull ghcr.io/zaproxy/zaproxy:stable
 
           docker run --rm --network host \
+            --user 0:0 \
             -v "${PWD}:/zap/wrk/:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
