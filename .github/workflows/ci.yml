@@ -297,8 +297,11 @@ jobs:
 
       - name: Trivy image scan
         run: |
+          docker save app:local -o EVIDENCE/P12/image.tar
+
           docker run --rm -v $PWD:/work aquasec/trivy \
-            image app:local \
+            image \
+              --input /work/EVIDENCE/P12/image.tar \
               --format json \
               --output /work/EVIDENCE/P12/trivy_report.json || true
 
